@@ -17,6 +17,11 @@ pub struct Router {
     routers: HashMap<method::Method, Recognizer<Box<Handler>>>
 }
 
+trait Resource {
+    fn get_handler(_: &mut Request) -> IronResult<Response>;
+}
+
+
 impl Router {
     /// Construct a new, empty `Router`.
     ///
@@ -56,6 +61,10 @@ impl Router {
         self.routers.entry(method).or_insert(Recognizer::new())
                     .add(glob.as_ref(), Box::new(handler));
         self
+    }
+
+    pub fn resource<R: Resource, S: AsRef<str>>(&mut self, glob: S, resource: R) -> &mut Router {
+        self.route(method::Get, glob, resource.get_handler);
     }
 
     /// Like route, but specialized to the `Get` method.
@@ -203,4 +212,26 @@ impl fmt::Display for TrailingSlash {
 
 impl Error for TrailingSlash {
     fn description(&self) -> &str { "Trailing Slash" }
+}
+
+#[cfg(test)]
+mod test {
+    use router::Router;
+    use iron::{Response, Request, IronResult};
+
+    trait Resource {
+        fn get_handler(_: &mut Request) -> IronResult<Response>;
+    }
+
+    struct MyResource;
+
+    impl Resource for MyResource {
+        fn get_handler(_: &mut Request) -> IronResult<Response> {Ok(Response::new())}
+    }
+
+    fn test_resource() {
+        let mut router = Router::new();
+        let resource = MyResource;
+        router.resource("/", resource);
+    }
 }
